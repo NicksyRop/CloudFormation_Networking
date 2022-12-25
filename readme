@@ -1,0 +1,77 @@
+!GetAtt NatGateway1EIP.AllocationId
+This code reads the the Elastic IP already and attatches to the nat gateway
+
+!Select [ 1, !GetAZs '' ]
+This code selects the second availability domain in a region 
+
+
+for Private subnets set  MapPublicIpOnLaunch: false and for public to true
+
+Type: AWS::EC2::EIP is used to assign a resource a public ip address that wont change incase of restart of maintenance
+
+MapPublicIpOnLaunch: true. Marking this field as True will enable the Auto-assign public IP address field of the public subnet.
+
+Inytenet gateway is always attatched to the public subnet
+
+
+For routes 
+
+1. First create a table 
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+        VpcId: !Ref VPC
+        Tags: 
+            - Key: Name 
+              Value: !Sub ${EnvironmentName} Public Routes
+
+
+2. Create a route for the table created and attatch it to internet gateway for public routes
+  DefaultPublicRoute: 
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties: 
+        RouteTableId: !Ref PublicRouteTable
+        DestinationCidrBlock: 0.0.0.0/0
+        GatewayId: !Ref InternetGateway              
+
+
+
+3. Then associate the each route table to a subnet
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+        RouteTableId: !Ref PublicRouteTable
+        SubnetId: !Ref PublicSubnet1        
+
+
+4. for ptivate route we reference the NatGateway and not the internet Gateway
+
+DefaultPrivateRoute1:
+      Type: AWS::EC2::Route
+      Properties:
+          RouteTableId: !Ref PrivateRouteTable1
+          DestinationCidrBlock: 0.0.0.0/0
+          NatGatewayId: !Ref NatGateway1
+
+!Sub function is like a concatination
+!join function returns a list from an input
+
+
+
+The Outpus section is used to place created resources in a variable to be used in other files 
+
+for example 
+
+
+PrivateSubnets:
+        Description: A list of the private subnets
+        Value: !Join [ ",", [ !Ref PrivateSubnet1, !Ref PrivateSubnet2 ]]
+        Export:
+          Name: !Sub ${EnvironmentName}-PRIV-NETS
+
+
+          this script will return a list of PrivateSubnet1 and PrivateSubnet2 as a variable ->>> ${EnvironmentName}-PRIV-NETS
+
+When you get error like export with name blablaaaa is already exported , that variable is already with another resource the way to solve this is go to
+project name in params and give a unique name          
